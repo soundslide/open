@@ -15,28 +15,49 @@ struct __attribute__((packed)) HidDescriptor {
 };
 
 const unsigned char hidReportDescriptor[] = {
-    0x05, 0x0C,        // Usage Page (Consumer Devices)
-    0x09, 0x01,        // Usage (Consumer Control)
-    0xA1, 0x01,        // Collection (Application)
-    0x09, 0xE9,        //   Usage (Volume Up)
-    0x09, 0xEA,        //   Usage (Volume Down)
-    0x09, 0xE2,        //   Usage (Mute)
-    0x09, 0xF8,        //   Usage (Microphone Mute)
-    0x15, 0x00,        //   Logical Minimum (0)
-    0x25, 0x01,        //   Logical Maximum (1)
-    0x75, 0x01,        //   Report Size (1 bit)
-    0x95, 0x04,        //   Report Count (4) - 4 buttons (Volume Up, Volume Down, Mute, Mic Mute)
-    0x81, 0x02,        //   Input (Data, Variable, Absolute)
-    0x95, 0x04,        //   Report Count (4) - Padding bits to make a byte (8 bits)
-    0x81, 0x03,        //   Input (Constant, Variable, Absolute)
-    0xC0               // End Collection
+
+  // Consumer Control (media keys)
+  0x05, 0x0C,        // Usage Page (Consumer Devices)
+  0x09, 0x01,        // Usage (Consumer Control)
+  0xA1, 0x01,        // Collection (Application)
+  0x09, 0xE9,        //   Usage (Volume Up)
+  0x09, 0xEA,        //   Usage (Volume Down)
+  0x09, 0x6F,        //   Usage (Brightness Up)
+  0x09, 0x70,        //   Usage (Brightness Down)
+  // 0x09, 0xE2,     //   Usage (Mute)
+  // 0x09, 0xF8,     //   Usage (Microphone Mute)
+  0x15, 0x00,        //   Logical Minimum (0)
+  0x25, 0x01,        //   Logical Maximum (1)
+  0x75, 0x01,        //   Report Size (1 bit)
+  0x95, 0x04,        //   Report Count (4) - 4 buttons (Volume Up, Volume Down, Mute, Mic Mute)
+  0x81, 0x02,        //   Input (Data, Variable, Absolute)
+  0x95, 0x04,        //   Report Count (4) - Padding bits to make a byte (8 bits)
+  0x81, 0x03,        //   Input (Constant, Variable, Absolute)
+  0xC0,              // End Collection
+
+  // Mouse Scroll
+  0x05, 0x01,        // Usage Page (Generic Desktop)
+  0x09, 0x02,        // Usage (Mouse)
+  0xA1, 0x01,        // Collection (Application)
+  0x09, 0x01,        //   Usage (Pointer)
+  0xA1, 0x00,        //   Collection (Physical)
+  0x09, 0x38,        //     Usage (Wheel)
+  0x15, 0x81,        //     Logical Min (-127)
+  0x25, 0x7F,        //     Logical Max (127)
+  0x75, 0x08,        //     Report Size (8)
+  0x95, 0x01,        //     Report Count (1)
+  0x81, 0x06,        //     Input (Data, Var, Rel)
+  0xC0,              //   End Collection
+  0xC0               // End Collection
+
 };
 
 class HidEndpoint : public usbd::UsbEndpoint {
 public:
   int key = 0;
   int count = 0;
-  unsigned char txBuffer[1];
+  int scroll = 0;
+  unsigned char txBuffer[2];
 
   void init() {
     txBufferPtr = txBuffer;
@@ -48,14 +69,32 @@ public:
     if (count) {
       this->key = key;
       this->count = count * 2; // one for key down and one for key up
+      this->scroll;
       sendReport();
     }
   }
 
+  void reportScroll(int steps) {
+    this->key = 0;
+    this->count = 0;
+    this->scroll = steps;
+    sendReport();
+  }
+
   void sendReport() {
-    txBuffer[0] = (count & 1) ? 0 : (1 << key);
+
+    if (count > 0) {
+      txBuffer[0] = (count & 1) ? 0 : (1 << key);
+      count--;
+    }
+    else {
+      txBuffer[0] = 0;
+    }
+
+    txBuffer[1] = scroll;
+    scroll = 0;
+
     startTx(sizeof(txBuffer));
-    count--;
   }
 
   void txComplete() {

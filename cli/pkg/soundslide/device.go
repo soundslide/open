@@ -2,6 +2,8 @@ package soundslide
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/google/gousb"
 )
@@ -28,6 +30,13 @@ var DeviceParameters map[string]uint8 = map[string]uint8{
 	"flip":        0,
 	"scale":       1,
 	"sensitivity": 2,
+	"function":    3,
+}
+
+var DeviceFunctions []string = []string{
+	"volume",
+	"scroll",
+	"brightness",
 }
 
 type SoundSlideDevice struct {
@@ -224,10 +233,24 @@ func (d SoundSlideDevice) SetDefaults() error {
 
 func (d SoundSlideDevice) UpgradeFirmware(imageFile string, progressMonitor func(int, int)) error {
 
-	data, err := elfToBinary(imageFile)
-	if err != nil {
-		return fmt.Errorf("error converting ELF to binary: %v", err)
+	var data []byte
+
+	if strings.HasSuffix(imageFile, ".elf") {
+		var err error
+		data, err = elfToBinary(imageFile)
+		if err != nil {
+			return fmt.Errorf("error converting ELF to binary: %v", err)
+		}
+	} else if strings.HasSuffix(imageFile, ".bin") {
+		var err error
+		data, err = os.ReadFile(imageFile)
+		if err != nil {
+			return fmt.Errorf("error reading binary file: %v", err)
+		}
+	} else {
+		return fmt.Errorf("file extension must be .bin or .elf")
 	}
+
 	pad := len(data) % PAGE_SIZE
 	if pad > 0 {
 		data = append(data, make([]byte, PAGE_SIZE-pad)...)
@@ -236,7 +259,7 @@ func (d SoundSlideDevice) UpgradeFirmware(imageFile string, progressMonitor func
 	pages := len(data) / PAGE_SIZE
 	progressMonitor(0, pages)
 
-	err = d.configInterfaceRequestOut(CFG_REQUEST_IMG_PREPARE, uint16(pages))
+	err := d.configInterfaceRequestOut(CFG_REQUEST_IMG_PREPARE, uint16(pages))
 	if err != nil {
 		return fmt.Errorf("error preparing image: %v", err)
 	}

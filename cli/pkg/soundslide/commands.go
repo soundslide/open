@@ -3,6 +3,7 @@ package soundslide
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -105,9 +106,26 @@ func setParameter(c *cli.Context) error {
 	if valueStr == "" {
 		return fmt.Errorf("value is required")
 	}
-	value, err := strconv.ParseUint(valueStr, 10, 8)
-	if err != nil {
-		return fmt.Errorf("value \"%v\" is not integer (%v)", valueStr, err)
+
+	var value uint64
+
+	if key == "function" {
+		found := false
+		for i, v := range DeviceFunctions {
+			if v == valueStr {
+				value = uint64(i)
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("value \"%v\" is not a valid function, valid functions are: %s", valueStr, strings.Join(DeviceFunctions, ", "))
+		}
+	} else {
+		value, err = strconv.ParseUint(valueStr, 10, 8)
+		if err != nil {
+			return fmt.Errorf("value \"%v\" is not integer (%v)", valueStr, err)
+		}
 	}
 
 	err = device.SetParameter(key, uint8(value))
@@ -135,7 +153,15 @@ func getParameter(c *cli.Context) error {
 		return fmt.Errorf("error getting parameter: %v", err)
 	}
 
-	fmt.Println(value)
+	if key == "function" {
+		if int(value) < len(DeviceFunctions) {
+			fmt.Println(DeviceFunctions[value])
+		} else {
+			return fmt.Errorf("unknown function value: %d", value)
+		}
+	} else {
+		fmt.Println(value)
+	}
 	return nil
 }
 
@@ -158,7 +184,7 @@ func upgradeFirmware(c *cli.Context) error {
 
 	imageFile := c.Args().Get(0)
 	if imageFile == "" {
-		return fmt.Errorf("elf-image is required")
+		return fmt.Errorf("file name is required")
 	}
 
 	device, err := OpenDevice(c.String("serial"))

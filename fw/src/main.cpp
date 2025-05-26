@@ -29,6 +29,10 @@ public:
   void reportKey(int key, int count) {
     this->hidInterface.hidEndpoint.reportKey(key, count);
   };
+
+  void reportScroll(int steps) {
+    this->hidInterface.hidEndpoint.reportScroll(steps);
+  }
 };
 
 GestureDecoder gestureDecoder;

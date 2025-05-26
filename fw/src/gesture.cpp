@@ -109,18 +109,37 @@ class GestureDecoder : public genericTimer::Timer {
 
     void checkQueue() {
 
-        // report key press according to the last change
-
+        // report according to the last change
         int change = queue[queueSize - 1];
-        if (change > 0) {
-            keyReporter->reportKey(KEY_VOLUME_UP, change);
-        }
-        if (change < 0) {
-            keyReporter->reportKey(KEY_VOLUME_DOWN, -change);
+
+        switch (deviceConfiguration->data.fields.function) {
+
+        case DEVICE_FUNCTION_VOLUME:
+            if (change > 0) {
+                keyReporter->reportKey(KEY_VOLUME_UP, change);
+            }
+            if (change < 0) {
+                keyReporter->reportKey(KEY_VOLUME_DOWN, -change);
+            }
+
+            break;
+
+        case DEVICE_FUNCTION_BRIGHTNESS:
+            if (change > 0) {
+                keyReporter->reportKey(KEY_BRIGHTNESS_UP, change);
+            }
+            if (change < 0) {
+                keyReporter->reportKey(KEY_BRIGHTNESS_DOWN, -change);
+            }
+
+            break;
+
+        case DEVICE_FUNCTION_SCROLL:
+            keyReporter->reportScroll(change);
+            break;
         }
 
         // shift queue
-
         for (int i = queueSize - 2; i >= 0; i--) {
             queue[i + 1] = queue[i];
         }
